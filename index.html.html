@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>捜査ツール - 証拠を集めろ</title>
+    <style>
+        :root { --main-bg: #1a1a1a; --text-color: #e0e0e0; --accent: #c0392b; --card-bg: #2c3e50; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--main-bg); color: var(--text-color); margin: 0; padding: 20px; line-height: 1.6; }
+        .container { max-width: 600px; margin: auto; border: 1px solid #444; padding: 20px; border-radius: 8px; background: #222; }
+        h1 { text-align: center; color: var(--accent); font-size: 1.5rem; }
+        .status-bar { background: #333; padding: 10px; border-radius: 5px; margin-bottom: 20px; text-align: center; font-weight: bold; }
+        .btn { display: block; width: 100%; padding: 15px; margin: 10px 0; background: var(--card-bg); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; transition: 0.3s; text-align: center; text-decoration: none; }
+        .btn:hover { background: #3e5871; }
+        .btn:disabled { background: #555; cursor: not-allowed; }
+        .evidence-card { background: #333; padding: 15px; border-left: 5px solid var(--accent); margin-bottom: 10px; white-space: pre-wrap; }
+        .hidden { display: none; }
+        .footer-note { font-size: 0.8rem; color: #888; text-align: center; margin-top: 20px; }
+        #copy-area { width: 100%; height: 150px; background: #000; color: #0f0; padding: 10px; box-sizing: border-box; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>捜査管理システム</h1>
+    
+    <div id="status" class="status-bar">捜査回数: <span id="count">0</span> / 10</div>
+
+    <!-- メイン画面 -->
+    <div id="view-main">
+        <button class="btn" onclick="startInvestigation()">捜査を開始する</button>
+        <p style="text-align:center">進捗は自動的に保存されます</p>
+    </div>
+
+    <!-- 場所選択画面 -->
+    <div id="view-list" class="hidden">
+        <h3>捜査箇所を選択してください</h3>
+        <div id="location-buttons"></div>
+        <button class="btn" style="background:#555;" onclick="resetGame()">データをリセットして最初から</button>
+    </div>
+
+    <!-- 捜査結果画面 -->
+    <div id="view-result" class="hidden">
+        <h3 id="result-title"></h3>
+        <div id="result-content" class="evidence-card"></div>
+        <div id="more-investigate" class="hidden" style="color: #f1c40f; margin-bottom: 15px;">
+            ⚠️ 捜査回数を消費し、さらに調べることができそうだ。
+        </div>
+        <button class="btn" onclick="showList()">戻る</button>
+    </div>
+
+    <!-- 終了画面 -->
+    <div id="view-end" class="hidden">
+        <h2 style="color:var(--accent)">捜査終了</h2>
+        <p>これ以上の捜査は不可能です。得られた情報を整理してください。</p>
+        <textarea id="copy-area" readonly></textarea>
+        <p style="font-size:0.8rem">↑長押しで全選択・コピーして共有してください</p>
+        <button class="btn" style="background:#555;" onclick="resetGame()">最初からやり直す</button>
+    </div>
+
+    <div class="footer-note">※2026年度版 捜査シミュレーター</div>
+</div>
+
+<script>
+/**
+ * データの管理（ここを編集することで内容を変更できます）
+ */
+const MASTER_DATA = {
+    "教室": [
+        "【教室】には、足跡が残っていた。保健室側のドアに向かっているようだ",
+        "【教室の足跡】は大体25-27cmと少し大きいようだ"
+    ],
+    "個室": [],
+    "保健室": [
+        "【保健室】の薬棚から【薬】がなくなっている",
+        "【消毒液】がどこにもないようだ"
+    ],
+    "校舎-廊下": [],
+    "校舎-階段": [
+        "【2Fと3Fの踊り場】で足跡が途切れている"
+    ]
+};
+
+const MAX_SEARCH = 10;
+let gameState = {
+    count: 0,
+    foundEvidences: [], // 取得した情報の配列
+    investigatedIndices: {} // 各場所を何回調べたか
+};
+
+// 初期化
+function init() {
+    const saved = localStorage.getItem('mystery_game_state');
+    if (saved) {
+        gameState = JSON.parse(saved);
+        updateStatus();
+        if (gameState.count >= MAX_SEARCH) {
+            showEnd();
+        }
+    }
+    renderLocationButtons();
+}
+
+function save() {
+    localStorage.setItem('mystery_game_state', JSON.stringify(gameState));
+}
+
+function updateStatus() {
+    document.getElementById('count').innerText = gameState.count;
+}
+
+function renderLocationButtons() {
+    const container = document.getElementById('location-buttons');
+    container.innerHTML = '';
+    Object.keys(MASTER_DATA).forEach(loc => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.innerText = loc;
+        btn.onclick = () => investigate(loc);
+        container.appendChild(btn);
+    });
+}
+
+function startInvestigation() {
+    if (gameState.count >= MAX_SEARCH) { showEnd(); }
+    else { showList(); }
+}
+
+function showList() {
+    hideAll();
+    document.getElementById('view-list').classList.remove('hidden');
+}
+
+function hideAll() {
+    ['view-main', 'view-list', 'view-result', 'view-end'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+    });
+}
+
+function investigate(location) {
+    if (gameState.count >= MAX_SEARCH) {
+        showEnd();
+        return;
+    }
+
+    gameState.count++;
+    updateStatus();
+    
+    const infoList = MASTER_DATA[location];
+    const currentIndex = gameState.investigatedIndices[location] || 0;
+    
+    hideAll();
+    const resultView = document.getElementById('view-result');
+    const resultTitle = document.getElementById('result-title');
+    const resultContent = document.getElementById('result-content');
+    const moreNote = document.getElementById('more-investigate');
+    
+    resultTitle.innerText = `捜査結果: ${location}`;
+    moreNote.classList.add('hidden');
+
+    if (infoList.length === 0 || currentIndex >= infoList.length) {
+        resultContent.innerText = "特に変わった様子はない。";
+    } else {
+        const info = infoList[currentIndex];
+        resultContent.innerText = info;
+        // 重複を除いて保存
+        if (!gameState.foundEvidences.includes(info)) {
+            gameState.foundEvidences.push(info);
+        }
+        // 次のインデックスへ
+        gameState.investigatedIndices[location] = currentIndex + 1;
+        
+        // まだ続きがある場合
+        if (currentIndex + 1 < infoList.length) {
+            moreNote.classList.remove('hidden');
+        }
+    }
+
+    save();
+    resultView.classList.remove('hidden');
+
+    if (gameState.count >= MAX_SEARCH) {
+        setTimeout(() => { alert("捜査回数が上限に達しました。"); }, 500);
+    }
+}
+
+function showEnd() {
+    hideAll();
+    document.getElementById('view-end').classList.remove('hidden');
+    const copyArea = document.getElementById('copy-area');
+    copyArea.value = "【入手した証拠一覧】\n" + gameState.foundEvidences.map(e => "・" + e).join('\n');
+}
+
+function resetGame() {
+    if (confirm("データをリセットしますか？")) {
+        localStorage.removeItem('mystery_game_state');
+        location.reload();
+    }
+}
+
+init();
+</script>
+</body>
+</html>
