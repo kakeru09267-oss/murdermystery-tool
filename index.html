@@ -18,7 +18,7 @@
         #copy-area { width: 100%; height: 180px; background: #000; color: #0f0; padding: 10px; box-sizing: border-box; font-family: monospace; border: 1px solid #444; margin-top: 10px; }
         .footer-note { font-size: 0.8rem; color: #888; text-align: center; margin-top: 20px; }
 
-        /* カスタムモーダルのスタイル */
+        /* カスタムモーダル */
         #custom-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 9999;
@@ -42,18 +42,15 @@
     <div id="timer-display" class="limit-timer"></div>
     <div id="status" class="status-bar">捜査回数: <span id="count">0</span> / --</div>
 
-    <!-- メイン画面 -->
     <div id="view-main">
         <button class="btn" onclick="startInvestigation()">捜査を開始する</button>
     </div>
 
-    <!-- 場所選択画面 -->
     <div id="view-list" class="hidden">
         <h3 style="text-align:center;">捜査箇所を選択してください</h3>
         <div id="location-buttons"></div>
     </div>
 
-    <!-- 捜査結果画面 -->
     <div id="view-result" class="hidden">
         <h3 id="result-title"></h3>
         <div id="result-content" class="evidence-card"></div>
@@ -63,20 +60,17 @@
         <button id="back-btn" class="btn" onclick="showList()">戻る</button>
     </div>
 
-    <!-- 終了画面 -->
     <div id="view-end" class="hidden">
         <h2 style="color:var(--accent); text-align:center;">捜査終了</h2>
         <p id="end-reason" style="text-align:center; font-weight:bold;"></p>
-        <p style="font-size:0.9rem;">得られた情報をコピーして整理してください：</p>
+        <p style="font-size:0.9rem;">得られた情報を整理・保存してください：</p>
         <textarea id="copy-area" readonly></textarea>
-        <p style="font-size:0.8rem; color:#888; text-align:center;">※情報の再確認はこの画面でのみ可能です。</p>
-        <button class="btn" onclick="location.reload()" style="background:#444; font-size:0.8rem;">再読み込み</button>
+        <p style="font-size:0.8rem; color:#888; text-align:center; margin-top:10px;">※情報の再確認はこの画面でのみ可能です。</p>
     </div>
 
     <div class="footer-note">誤タップや誤操作にはご注意ください</div>
 </div>
 
-<!-- カスタムモーダル -->
 <div id="custom-modal" class="hidden">
     <div class="modal-content">
         <div id="modal-msg" class="modal-text"></div>
@@ -86,7 +80,7 @@
 
 <script>
 /**
- * 設定項目（ここを章ごとに書き換えてください）
+ * 設定項目
  */
 const CHAPTER_NAME = "1章"; 
 const SAVE_KEY = "investigation_save_ch1"; 
@@ -97,19 +91,14 @@ const MASTER_DATA = {
     "教室": ["【教室】には、足跡が残っていた。保健室側のドアに向かっているようだ", "【教室の足跡】は大体25-27cmと少し大きいようだ"],
     "保健室": ["【保健室】の薬棚から【薬】がなくなっている", "【消毒液】がどこにもないようだ"],
     "校舎-廊下": [],
-    "校舎-階段": ["【2Fと3Fの踊り場】で足跡が途切れている"]
-    "個室1": []
-    "個室2": []        
+    "校舎-階段": ["【2Fと3Fの踊り場】で足跡が途切れている"],
+    "個室1": [],
+    "個室2": [],        
     "個室3": []
-    
 };
 
-/**
- * システム変数
- */
 let gameState = { count: 0, foundEvidences: [], investigatedIndices: {} };
 
-// モーダル制御
 function showCustomModal(msg) {
     document.getElementById('modal-msg').innerText = msg;
     document.getElementById('custom-modal').classList.remove('hidden');
@@ -119,30 +108,32 @@ function closeModal() {
     document.getElementById('custom-modal').classList.add('hidden');
 }
 
-// 初期化
-function init() {
-    // 表示の更新
-    document.getElementById('chapter-title').innerText = `${CHAPTER_NAME}捜査`;
-    document.getElementById('status').innerHTML = `捜査回数: <span id="count">0</span> / ${MAX_SEARCH}`;
+function hideAll() {
+    document.getElementById('view-main').classList.add('hidden');
+    document.getElementById('view-list').classList.add('hidden');
+    document.getElementById('view-result').classList.add('hidden');
+    document.getElementById('view-end').classList.add('hidden');
+}
 
-    // 時間チェック開始
-    checkTimeLimit();
-    const timerInterval = setInterval(() => {
-        if (!checkTimeLimit()) clearInterval(timerInterval);
-    }, 1000);
+function updateStatus() {
+    document.getElementById('count').innerText = gameState.count;
+}
 
-    // データの読み込み
-    const saved = localStorage.getItem(SAVE_KEY);
-    if (saved) {
-        gameState = JSON.parse(saved);
-        updateStatus();
-        if (gameState.count >= MAX_SEARCH) {
-            showEnd("捜査可能回数の上限に達しました");
-            return;
-        }
-    }
+function save() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+}
+
+function showEnd(reason) {
+    hideAll();
+    document.getElementById('end-reason').innerText = reason;
+    document.getElementById('view-end').classList.remove('hidden');
     
-    renderLocationButtons();
+    const copyArea = document.getElementById('copy-area');
+    const evidenceText = gameState.foundEvidences.length 
+        ? gameState.foundEvidences.map((e, i) => `${i+1}. ${e}`).join('\n') 
+        : "（入手した証拠はありません）";
+    
+    copyArea.value = `【${CHAPTER_NAME} 捜査結果】\n${evidenceText}`;
 }
 
 function checkTimeLimit() {
@@ -154,24 +145,64 @@ function checkTimeLimit() {
         showEnd("捜査終了時刻を過ぎました");
         return false;
     } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
         const mins = Math.floor((diff / (1000 * 60)) % 60);
         const secs = Math.floor((diff / 1000) % 60);
-        let timeStr = "終了まで残り: ";
-        if (days > 0) timeStr += `${days}日 `;
-        timeStr += `${hours}時間 ${mins}分 ${secs}秒`;
-        document.getElementById('timer-display').innerText = timeStr;
+        document.getElementById('timer-display').innerText = `終了まで残り: ${hours}時間 ${mins}分 ${secs}秒`;
         return true;
     }
 }
 
-function save() {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+function showList() {
+    if (gameState.count >= MAX_SEARCH) {
+        showEnd("捜査可能回数の上限に達しました");
+        return;
+    }
+    hideAll();
+    document.getElementById('view-list').classList.remove('hidden');
 }
 
-function updateStatus() {
-    document.getElementById('count').innerText = gameState.count;
+function investigate(location) {
+    if (gameState.count >= MAX_SEARCH) return;
+
+    gameState.count++;
+    updateStatus();
+    
+    const infoList = MASTER_DATA[location] || [];
+    const currentIndex = gameState.investigatedIndices[location] || 0;
+    
+    hideAll();
+    const resultView = document.getElementById('view-result');
+    const resultContent = document.getElementById('result-content');
+    const moreNote = document.getElementById('more-investigate');
+    const backBtn = document.getElementById('back-btn');
+    
+    document.getElementById('result-title').innerText = `捜査結果: ${location}`;
+    moreNote.classList.add('hidden');
+
+    if (infoList.length > 0 && currentIndex < infoList.length) {
+        const info = infoList[currentIndex];
+        resultContent.innerText = info;
+        if (!gameState.foundEvidences.includes(info)) gameState.foundEvidences.push(info);
+        gameState.investigatedIndices[location] = currentIndex + 1;
+        if (currentIndex + 1 < infoList.length) moreNote.classList.remove('hidden');
+    } else {
+        resultContent.innerText = "特に変わった様子はない。";
+    }
+
+    if (gameState.count >= MAX_SEARCH) {
+        backBtn.innerText = "捜査を終了する";
+        backBtn.style.background = "#c0392b";
+        backBtn.onclick = () => showEnd("捜査可能回数の上限に達しました");
+        showCustomModal("捜査回数が上限に達しました。");
+    } else {
+        backBtn.innerText = "戻る";
+        backBtn.style.background = "";
+        backBtn.onclick = showList;
+    }
+    
+    resultView.classList.remove('hidden');
+    save();
 }
 
 function renderLocationButtons() {
@@ -198,78 +229,27 @@ function startInvestigation() {
     }
 }
 
-function showList() {
-    hideAll();
-    document.getElementById('view-list').classList.remove('hidden');
-}
+function init() {
+    document.getElementById('chapter-title').innerText = `${CHAPTER_NAME}捜査`;
+    document.getElementById('status').innerHTML = `捜査回数: <span id="count">0</span> / ${MAX_SEARCH}`;
 
-function hideAll() {
-    const views = ['view-main', 'view-list', 'view-result', 'view-end'];
-    views.forEach(id => document.getElementById(id).classList.add('hidden'));
-}
-
-function investigate(location) {
-    if (gameState.count >= MAX_SEARCH) return;
-
-    gameState.count++;
-    updateStatus();
-    
-    const infoList = MASTER_DATA[location] || [];
-    const currentIndex = gameState.investigatedIndices[location] || 0;
-    
-    hideAll();
-    const resultView = document.getElementById('view-result');
-    const resultContent = document.getElementById('result-content');
-    const moreNote = document.getElementById('more-investigate');
-    const backBtn = document.getElementById('back-btn');
-    
-    document.getElementById('result-title').innerText = `捜査結果: ${location}`;
-    moreNote.classList.add('hidden');
-
-    if (infoList.length > 0 && currentIndex < infoList.length) {
-        const info = infoList[currentIndex];
-        resultContent.innerText = info;
-        if (!gameState.foundEvidences.includes(info)) gameState.foundEvidences.push(info);
-        gameState.investigatedIndices[location] = currentIndex + 1;
-        
-        // まだ次の証拠があるかチェック
-        if (currentIndex + 1 < infoList.length) {
-            moreNote.classList.remove('hidden');
-        }
-    } else {
-        resultContent.innerText = "特に変わった様子はない。";
+    const saved = localStorage.getItem(SAVE_KEY);
+    if (saved) {
+        gameState = JSON.parse(saved);
+        updateStatus();
     }
 
     if (gameState.count >= MAX_SEARCH) {
-        backBtn.innerText = "捜査を終了する";
-        backBtn.style.background = "#c0392b";
-        backBtn.onclick = () => showEnd("捜査可能回数の上限に達しました");
-        showCustomModal("捜査回数が上限に達しました。\nこれ以上の調査はできません。");
+        showEnd("捜査可能回数の上限に達しました");
     } else {
-        backBtn.innerText = "戻る";
-        backBtn.style.background = ""; // 元の色に戻す
-        backBtn.onclick = showList;
+        renderLocationButtons();
+        checkTimeLimit();
+        setInterval(checkTimeLimit, 1000);
     }
-    
-    resultView.classList.remove('hidden');
-    save();
 }
 
-function showEnd(reason) {
-    hideAll();
-    document.getElementById('end-reason').innerText = reason;
-    document.getElementById('view-end').classList.remove('hidden');
-    
-    const copyArea = document.getElementById('copy-area');
-    const evidenceText = gameState.foundEvidences.length 
-        ? gameState.foundEvidences.map((e, i) => `${i+1}. ${e}`).join('\n') 
-        : "（入手した証拠はありません）";
-    
-    copyArea.value = `【${CHAPTER_NAME} 捜査結果】\n${evidenceText}`;
-}
-
-// 起動
-window.onload = init;
+// 実行
+init();
 </script>
 </body>
 </html>
