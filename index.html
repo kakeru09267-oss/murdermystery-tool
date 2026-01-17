@@ -17,6 +17,22 @@
         .hidden { display: none; }
         #copy-area { width: 100%; height: 180px; background: #000; color: #0f0; padding: 10px; box-sizing: border-box; font-family: monospace; border: 1px solid #444; }
         .footer-note { font-size: 0.8rem; color: #888; text-align: center; margin-top: 20px; }
+
+        /* カスタムモーダルのスタイル */
+        #custom-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-content {
+            background: #2c3e50; border: 2px solid var(--accent); padding: 30px;
+            border-radius: 10px; text-align: center; max-width: 80%;
+            box-shadow: 0 0 20px rgba(192, 57, 43, 0.5);
+        }
+        .modal-text { font-weight: bold; margin-bottom: 20px; color: #fff; }
+        .modal-btn {
+            background: var(--accent); color: white; border: none; padding: 10px 30px;
+            border-radius: 5px; cursor: pointer; font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -55,11 +71,16 @@
     <div class="footer-note">誤タップや誤操作にはご注意ください</div>
 </div>
 
+<!-- 自作モーダルHTML -->
+<div id="custom-modal" class="hidden">
+    <div class="modal-content">
+        <div id="modal-msg" class="modal-text"></div>
+        <button class="modal-btn" onclick="closeModal()">了解</button>
+    </div>
+</div>
+
 <script>
-/**
- * 設定項目
- */
-const LIMIT_DATE = "2026-01-20T21:00:00"; // 終了日時 (YYYY-MM-DDTHH:MM:SS)
+const LIMIT_DATE = "2026-01-20T21:00:00"; 
 const MAX_SEARCH = 10;
 const MASTER_DATA = {
     "教室": ["【教室】には、足跡が残っていた。保健室側のドアに向かっているようだ", "【教室の足跡】は大体25-27cmと少し大きいようだ"],
@@ -71,11 +92,21 @@ const MASTER_DATA = {
 
 let gameState = { count: 0, foundEvidences: [], investigatedIndices: {} };
 
+// カスタムモーダル表示関数
+function showCustomModal(msg) {
+    document.getElementById('modal-msg').innerText = msg;
+    document.getElementById('custom-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('custom-modal').classList.add('hidden');
+}
+
 function init() {
     checkTimeLimit();
     setInterval(checkTimeLimit, 1000);
 
-    const saved = localStorage.getItem('20260117');
+    const saved = localStorage.getItem('mystery_game_state_2026');
     if (saved) {
         gameState = JSON.parse(saved);
         updateStatus();
@@ -174,7 +205,8 @@ function investigate(location) {
         backBtn.innerText = "捜査を終了する";
         backBtn.style.background = "#c0392b";
         backBtn.onclick = () => showEnd("捜査可能回数の上限に達しました");
-        alert("捜査回数が上限に達しました。");
+        // alertの代わりに自作モーダルを表示
+        showCustomModal("捜査回数が上限に達しました。");
     } else {
         backBtn.innerText = "戻る";
         backBtn.onclick = showList;
@@ -195,7 +227,3 @@ init();
 </script>
 </body>
 </html>
-
-
-
-
