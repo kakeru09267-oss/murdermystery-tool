@@ -59,7 +59,7 @@
 /**
  * 設定項目
  */
-const LIMIT_DATE = "2026-01-12T21:00:00"; // 終了日時 (YYYY-MM-DDTHH:MM:SS)
+const LIMIT_DATE = "2026-01-20T21:00:00"; // 終了日時 (YYYY-MM-DDTHH:MM:SS)
 const MAX_SEARCH = 10;
 const MASTER_DATA = {
     "教室": ["【教室】には、足跡が残っていた。保健室側のドアに向かっているようだ", "【教室の足跡】は大体25-27cmと少し大きいようだ"],
@@ -75,7 +75,7 @@ function init() {
     checkTimeLimit();
     setInterval(checkTimeLimit, 1000);
 
-    const saved = localStorage.getItem('mystery_game_state_2026');
+    const saved = localStorage.getItem('20260117');
     if (saved) {
         gameState = JSON.parse(saved);
         updateStatus();
@@ -195,6 +195,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
